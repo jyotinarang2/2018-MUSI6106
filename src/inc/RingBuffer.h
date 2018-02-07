@@ -29,81 +29,103 @@ public:
         m_ptBuff    = 0;
     }
 
-    /*! add a new value of type T to write index
-    \param tNewValue the new value
-    \return void
-    */
-    void put(T tNewValue)
-    {
-        // to be implemented
-    }
-    
-    /*! return the value at the current read index
-    \return type T the value from the read index
-    */
-    T get () const
-    {
-        // to be implemented
-    }
-
-    /*! return the current index for writing/put
-    \return int
-    */
-    int getWriteIdx () const
-    {
-        // to be implemented
-    }
-
-    /*! move the write index to a new position
-    \param iNewWriteIdx: new position
-    \return void
-    */
-    void setWriteIdx (int iNewWriteIdx)
-    {
-        // to be implemented
-    }
-
-    /*! return the current index for reading/get
-    \return int
-    */
-    int getReadIdx () const
-    {
-        // to be implemented
-    }
-
-    /*! move the read index to a new position
-    \param iNewReadIdx: new position
-    \return void
-    */
-    void setReadIdx (int iNewReadIdx)
-    {
-        // to be implemented
-    }
-
     /*! add a new value of type T to write index and increment write index
     \param tNewValue the new value
     \return void
     */
     void putPostInc (T tNewValue)
     {
-        // to be implemented
+        put(tNewValue);
+        incIdx(m_iWriteIdx);
     }
 
+    /*! add new values of type T to write index and increment write index
+    \param ptNewBuff: new values
+    \param iLength: number of values
+    \return void
+    */
+    void putPostInc (const T* ptNewBuff, int iLength)
+    {
+        // dummy
+    }
+
+    /*! add a new value of type T to write index
+    \param tNewValue the new value
+    \return void
+    */
+    void put(T tNewValue)
+    {
+        m_ptBuff[m_iWriteIdx]   = tNewValue;
+    }
+
+    /*! add new values of type T to write index
+    \param ptNewBuff: new values
+    \param iLength: number of values
+    \return void
+    */
+    void put(const T* ptNewBuff, int iLength)
+    {
+        // dummy
+    }
+    
     /*! return the value at the current read index and increment the read pointer
-    \return type T the value from the read index
+    \return float the value from the read index
     */
     T getPostInc ()
     {
-        // to be implemented
+        T tValue = get();
+        incIdx(m_iReadIdx);
+        return tValue;
     }
 
-    /*! return the value at the index with an arbitrary offset
-    \param iOffset: read at offset from read index
-    \return type T the value from the read index
+    /*! return the values starting at the current read index and increment the read pointer
+    \param ptBuff: pointer to where the values will be written
+    \param iLength: number of values
+    \return void
     */
-    T get (int iOffset = 0) const
+    void getPostInc (T* ptBuff, int iLength)
     {
-        // to be implemented
+        get(ptBuff, iLength);
+        incIdx(m_iReadIdx, iLength);
+    }
+
+    /*! return the value at the current read index
+    \param fOffset: read at offset from read index
+    \return float the value from the read index
+    */
+    T get (float fOffset = 0.f) const
+    {
+        if (fOffset == 0.f)
+            return m_ptBuff[m_iReadIdx];
+        else
+        {
+            assert (std::abs(fOffset) <= m_iBuffLength);
+
+            int iRead   = m_iReadIdx + static_cast<int>(std::floor(fOffset));
+            while (iRead > m_iBuffLength-1)
+                iRead  -= m_iBuffLength;
+            while (iRead < 0)
+                iRead  += m_iBuffLength;
+
+            return m_ptBuff[iRead];
+        }
+    }
+
+    /*! return the values starting at the current read index
+    \param ptBuff to where the values will be written
+    \param iLength: number of values
+    \return void
+    */
+    void get (T* ptBuff, int iLength) const
+    {
+        assert(iLength <= m_iBuffLength && iLength >= 0);
+
+        // copy two parts: to the end of buffer and after wrap around
+        int iNumValues2End      = std::min(iLength, m_iBuffLength - m_iReadIdx);
+
+        memcpy (ptBuff, &m_ptBuff[m_iReadIdx], sizeof(T)*iNumValues2End);
+        if ((iLength - iNumValues2End)>0)
+            memcpy (&ptBuff[iNumValues2End], m_ptBuff, sizeof(T)*(iLength - iNumValues2End));
     }
     
     /*! set buffer content and indices to 0
@@ -114,6 +136,40 @@ public:
         memset (m_ptBuff, 0, sizeof(T)*m_iBuffLength);
         m_iReadIdx  = 0;
         m_iWriteIdx = 0;
+    }
+
+    /*! return the current index for writing/put
+    \return int
+    */
+    int getWriteIdx () const
+    {
+        return m_iWriteIdx;
+    }
+
+    /*! move the write index to a new position
+    \param iNewWriteIdx: new position
+    \return void
+    */
+    void setWriteIdx (int iNewWriteIdx)
+    {
+        incIdx(m_iWriteIdx, iNewWriteIdx - m_iWriteIdx);
+    }
+
+    /*! return the current index for reading/get
+    \return int
+    */
+    int getReadIdx () const
+    {
+        return m_iReadIdx;
+    }
+
+    /*! move the read index to a new position
+    \param iNewReadIdx: new position
+    \return void
+    */
+    void setReadIdx (int iNewReadIdx)
+    {
+        incIdx(m_iReadIdx, iNewReadIdx - m_iReadIdx);
     }
 
     /*! returns the number of values currently buffered (note: 0 could also mean the buffer is full!)
@@ -134,6 +190,16 @@ public:
 private:
     CRingBuffer ();
     CRingBuffer(const CRingBuffer& that);
+
+    void incIdx (int &iIdx, int iOffset = 1)
+    {
+        while ((iIdx + iOffset) < 0)
+        {
+            // avoid negative buffer indices
+            iOffset += m_iBuffLength;   
+        }
+        iIdx    = (iIdx + iOffset) % m_iBuffLength;
+    };
 
     int m_iBuffLength,              //!< length of the internal buffer
         m_iReadIdx,                 //!< current read index
