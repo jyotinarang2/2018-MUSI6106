@@ -96,7 +96,17 @@ public:
     T get (float fOffset = 0) const
     {
         // dummy
-        return 0;
+		if (iOffset < 0) {
+			while ((iOffset) < 0)
+			{
+				// avoid negative buffer indices
+				iOffset += m_iBuffLength;
+			}
+		}
+		iIdx = (m_iReadIdx + iOffset) % m_iBuffLength;
+		fraction = iIdx - floor(iIdx);
+		return m_ptBuff[ceil(iIdx)] * fraction + m_ptBuff[floor(iIdx)] * (1 - fraction);
+        //return 0;
     }
 
     /*! return the values starting at the current read index
